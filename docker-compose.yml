@@ -1,0 +1,18 @@
+services:
+  translaitor:
+    image: node:lts-alpine
+    container_name: translaitor
+    ports:
+      - 8082:8080
+    networks:
+      - traefik_default
+    volumes:
+      - ./:/workspace
+      - ./cache:/tmp
+    working_dir: /workspace
+    command: sh /workspace/script.sh
+    restart: unless-stopped
+networks:
+  traefik_default:
+    name: traefik_default
+    external: true
