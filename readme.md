@@ -1,6 +1,6 @@
 # Translaitor
 
-This is a simple translator application built using [Svelte](https://svelte.dev/) and [Gemini](https://gemini.google.com/). That can be used to translate books from one language to another. It is designed to be user-friendly and easy to use.
+This is a simple translator application built using [Svelte](https://svelte.dev/), [Gemini](https://gemini.google.com/) and [SkeletonUI](https://skeleton.dev/). That can be used to translate books from one language to another. It is designed to be user-friendly and easy to use.
 
 ## Setup
 
@@ -25,3 +25,4 @@ docker compose up --build -d
 - [ ] The percentage of the progress bar is wrong
 - [ ] Change the book name by the original title + ({language} AI translated)
 - [ ] Prettier configuration for code formatting
+- [ ] Get the supported languages from the gemini api
