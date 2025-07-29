@@ -8,8 +8,6 @@ services:
       - ./app:/workspace
     networks:
       - traefik_default
-    env_file:
-      - .env
     working_dir: /workspace
     command: sh /workspace/script.sh
     restart: unless-stopped

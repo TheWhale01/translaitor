@@ -72,12 +72,8 @@
         />
     </div>
     {#if !translating}
-        <!-- <button
-            disabled={(srcLang === '' || destLang === '') || (srcLang === destLang)}
-            type="submit"
-            class="btn btn-lg preset-filled-primary-500"
-        > -->
         <button
+            disabled={(srcLang === '' || destLang === '') || (srcLang === destLang)}
             type="submit"
             class="btn btn-lg preset-filled-primary-500"
         >
