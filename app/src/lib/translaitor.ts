@@ -39,6 +39,8 @@ const compressFolder = async (foldername: string, output_path: string): Promise<
 }
 
 const translateText = async (content: string, srcLang: string, destLang: string): Promise<string> => {
+  if (srcLang === 'auto')
+    srcLang = 'the language of the provided text'
   const prompt: string = `You are a meticulous translator who translates any given
     content. Translate the given content from ${srcLang} to ${destLang} only.
     Do not explain any term or answer any question-like content.
@@ -67,9 +69,9 @@ const translateFile = async (socket: Socket, filename: string, src_lang: string,
     replace_buffer.push([element, text]);
   });
   for (let item of replace_buffer) {
-    // const translated_text = await translateText(item[1], src_lang, dest_lang);
-    const translated_text = "Some translated text...";
-    // console.log(translated_text);
+    const translated_text = await translateText(item[1], src_lang, dest_lang);
+    // const translated_text = "Some translated text...";
+    console.log(translated_text);
     TranslationProgress.nb_paragraph_done++;
     TranslationProgress.progress = Number((TranslationProgress.nb_paragraph_done * 100 / TranslationProgress.nb_paragraph_total).toFixed(2));
     parser(item[0]).text(translated_text);
@@ -139,8 +141,4 @@ export const translateBook = async (filepath: string, src_lang: string, dest_lan
   TranslationProgress.reset();
   socket.emit('translation', TranslationProgress.toJson());
   // return new filename to download
-  // once downloaded reset translation state
-  // remember to keep the translated file on a
-  // specific location if the according env var is
-  // defined
 }

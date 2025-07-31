@@ -50,6 +50,7 @@
             languages={languages}
             selected_value={destLang}
             bind:value={srcLang}
+            show_auto={true}
         />
         <button
             type="button"
