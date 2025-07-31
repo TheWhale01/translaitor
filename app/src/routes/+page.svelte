@@ -1,14 +1,14 @@
 <script lang="ts">
   import { Progress } from "@skeletonlabs/skeleton-svelte";
-  import IconLoader from '@lucide/svelte/icons/loader-2';
+  import { LoaderCircle, RefreshCw } from "@lucide/svelte";
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { enhance } from '$app/forms';
-  import { socket } from "$lib/socketio_connection";
-  import { onMount } from "svelte";
+  import { io } from "socket.io-client";
 
   import type { PageProps } from "./$types";
 
   // Available languages for translation
+  const socket = io();
   const languages = [
     'English',
     'Spanish',
@@ -19,14 +19,12 @@
   ];
 
   let { data }: PageProps = $props();
-
   let srcLang: string = $state('');
   let destLang: string = $state('');
 
-  onMount(() => {
-    socket.on('connection', () => { console.log("You are connected"); });
+  socket.on('translation', (translation: any): void => {
+    data = translation;
   });
-
 </script>
 
 <header class="p-8">
@@ -49,13 +47,27 @@
             name="src_lang"
             title="Source Language"
             languages={languages}
+            selected_value={destLang}
             bind:value={srcLang}
         />
-        <p>-></p>
+        <button
+            type="button"
+            class="btn btn-sm preset-filled-secondary-500"
+            onclick={(): void => {
+            let temp: string = srcLang;
+
+            if (!srcLang || !destLang)
+              return ;
+            srcLang = destLang;
+            destLang = temp;
+            }}>
+                <RefreshCw />
+        </button>
         <LanguageSelector
             name="target_lang"
             title="Target Language"
             languages={languages}
+            selected_value={srcLang}
             bind:value={destLang}
         />
     </div>
@@ -63,14 +75,14 @@
         <button
             disabled={((srcLang === '' || destLang === '') || (srcLang === destLang)) && !data.active}
             type="submit"
-            class="btn btn-lg preset-filled-primary-500"
+            class="btn btn-lg preset-filled-secondary-500"
         >
             Translate
         </button>
     {:else}
         <div class="card p-4">
-            <Progress meterBg="bg-primary-500" value={data.progress} max={100}>{data.progress}%</Progress>
-            <p class="text-sm mt-2">This may take several minutes depending on the size of your book. <IconLoader class="w-6 h-6 animate-spin inline" /></p>
+            <Progress meterBg="bg-secondary-500" value={data.progress} max={100}>{data.progress}%</Progress>
+            <p class="text-sm mt-2">This may take several minutes depending on the size of your book. <LoaderCircle class="w-6 h-6 animate-spin inline" /></p>
             <p class="text-center pt-4">Translating: { data.title }</p>
         </div>
     {/if}

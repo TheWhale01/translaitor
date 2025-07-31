@@ -3,11 +3,11 @@
 import { fail } from '@sveltejs/kit';
 import { writeFileSync } from 'fs';
 import { translateBook } from '$lib/translaitor';
+import TranslationProgress from '$lib/translation_progress';
 import type { Actions, PageServerLoad } from './$types';
-import { translation } from '$lib/translation_progress';
 
 export const load: PageServerLoad = () => {
-  return translation.toJson();
+  return TranslationProgress.toJson();
 }
 
 export const actions = {

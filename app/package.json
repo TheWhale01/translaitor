@@ -9,7 +9,8 @@
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"prod": "npm run build && TOKEN=secret ORIGIN=http://localhost:3000 node server.js"
 	},
 	"devDependencies": {
 		"@google/genai": "^1.4.0",
@@ -31,7 +32,9 @@
 		"vite": "^6.2.6"
 	},
 	"dependencies": {
+		"@sveltejs/adapter-node": "^5.2.13",
 		"cheerio": "^1.1.2",
+		"express": "^5.1.0",
 		"jszip": "^3.10.1",
 		"socket.io": "^4.8.1",
 		"socket.io-client": "^4.8.1"

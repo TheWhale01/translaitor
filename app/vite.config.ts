@@ -1,11 +1,8 @@
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
-import { socketioPlugin } from './src/lib/socket_plugin';
+import { webSocketServer } from './src/lib/socket_server';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit(), socketioPlugin],
-	server: {
-		allowedHosts: ['abyss', 'translaitor.thewhale.fr']
-	}
+	plugins: [tailwindcss(), sveltekit(), webSocketServer],
 });

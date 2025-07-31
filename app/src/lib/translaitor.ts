@@ -3,29 +3,27 @@ import * as fs from 'fs';
 import * as cheerio from 'cheerio';
 import path from 'path';
 import { GenerateContentResponse, GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY, npm_config_global_prefix } from "$env/static/private";
+import { GEMINI_API_KEY, WEBSOCKET_URL } from "$env/static/private";
 import { setTimeout } from "timers/promises";
-import { translation } from "./translation_progress";
-
-// TODO:
-// When a translation is requested store the book name and the percentage in memory
-// When a new client connects to the webpage check for any translation in memory
+import { io } from 'socket.io-client';
+import TranslationProgress from "./translation_progress";
+import type { Socket } from "socket.io-client";
 
 const makedir = async (name: string, options: any = {}): Promise<void> => {
   if (!fs.existsSync(name)) await fs.promises.mkdir(name, options);
 }
 
-const addFilesToZip = async (dir:any, folder:any): Promise<void> => {
-  const files = await fs.promises.readdir(dir);
+const addFilesToZip = (dir:any, folder:any): void => {
+  const files = fs.readdirSync(dir);
   for (const file of files) {
     const fullPath = path.join(dir, file);
-    const stats = await fs.promises.stat(fullPath);
+    const stats = fs.statSync(fullPath);
     if (stats.isDirectory()) {
       const subfolder = folder.folder(file);
-      await addFilesToZip(fullPath, subfolder);
+      addFilesToZip(fullPath, subfolder);
     }
     else {
-      const content = await fs.promises.readFile(fullPath);
+      const content = fs.readFileSync(fullPath);
       folder.file(file, content);
     }
   }
@@ -33,9 +31,9 @@ const addFilesToZip = async (dir:any, folder:any): Promise<void> => {
 
 const compressFolder = async (foldername: string, output_path: string): Promise<void> => {
   const zip = new JSZip();
-  await addFilesToZip(foldername, zip);
+  addFilesToZip(foldername, zip);
   const content = await zip.generateAsync({ type: "nodebuffer" });
-  await fs.promises.writeFile(output_path, content);
+  fs.writeFileSync(output_path, content);
   console.log(`Zip file created at ${output_path}`);
 }
 
@@ -57,39 +55,45 @@ const translateText = async (content: string, srcLang: string, destLang: string)
   return translated_text.text === undefined ? "Error while trying to translate..." : translated_text.text;
 }
 
-const translateFile = async (content: string, src_lang: string, dest_lang: string): Promise<Uint8Array> => {
+const translateFile = async (socket: Socket, filename: string, src_lang: string, dest_lang: string): Promise<string> => {
+  const content: string = await fs.promises.readFile(filename, 'utf-8');
   const parser = cheerio.load(content);
   let replace_buffer: any[] = [];
+
   parser('p').each((index, element) => {
     const text = parser(element).text().trim();
-    // Storing future translation to prevent reaching google's rate limit
+
     replace_buffer.push([element, text]);
   });
   for (let item of replace_buffer) {
-    const translated_text = await translateText(item[1], src_lang, dest_lang);
-    // Need to change this to have a percentage
-    // Send socketio message with new percentage
-    translation.progress++;
+    // const translated_text = await translateText(item[1], src_lang, dest_lang);
+    const translated_text = "Some translated text...";
+    await setTimeout(100);
+    // console.log(translated_text);
+    TranslationProgress.nb_paragraph_done++;
+    TranslationProgress.progress = Number((TranslationProgress.nb_paragraph_done * 100 / TranslationProgress.nb_paragraph_total).toFixed(2));
     parser(item[0]).text(translated_text);
+    // emit the translation progress
+    socket.emit('translation', TranslationProgress.toJson());
   }
-  return Uint8Array.from(parser.html().split("").map(c => c.charCodeAt()));
+  return parser.html();
 }
 
 export const getNbParagraph = (content: string): number => {
   let nb = 0;
   const parser = cheerio.load(content);
+
   parser('p').each(() => {
     nb++;
   });
   return nb;
 }
 
-export const extractEpub = async (filepath: string): Promise<string[]> => {
+export const extractEpub = async (filepath: string, new_path: string): Promise<string[]> => {
   let files_to_translate: string[] = [];
-  const new_path = filepath.replace('.epub', '') + ' - Translaitor';
   await makedir(new_path);
-  translation.title = filepath.replace('.epub', '');
-  translation.active = true;
+  TranslationProgress.title = filepath.replace('.epub', '');
+  TranslationProgress.active = true;
   try {
     const zip_data = await fs.promises.readFile(filepath);
     const zip = await JSZip.loadAsync(zip_data);
@@ -101,9 +105,10 @@ export const extractEpub = async (filepath: string): Promise<string[]> => {
         const content: string = await file.async('string');
         if (filename.endsWith('.html')) {
           files_to_translate.push(new_path + '/' + filename);
-          translation.nb_paragraph += getNbParagraph(content);
+          TranslationProgress.nb_paragraph_total += getNbParagraph(content);
         }
-        await fs.promises.writeFile(new_path + '/' + filename, Buffer.from(content));
+        if (!file.dir)
+          await fs.promises.writeFile(new_path + '/' + filename, Buffer.from(content));
       }
     }
   }
@@ -112,9 +117,25 @@ export const extractEpub = async (filepath: string): Promise<string[]> => {
   }
   return files_to_translate;
 }
+
 export const translateBook = async (filepath: string, src_lang: string, dest_lang: string): Promise<void> => {
-  const files: string[] = await extractEpub(filepath);
-  for (let file of files) {
-    translateFile(file, src_lang, dest_lang);
+  const socket = io(WEBSOCKET_URL);
+  const new_path = filepath.replace('.epub', '') + ' - Translaitor';
+  const files: string[] = await extractEpub(filepath, new_path);
+
+  fs.unlinkSync(filepath);
+  socket.emit('translation', TranslationProgress.toJson());
+  for (const file of files) {
+    const translated_content: string = await translateFile(socket, file, src_lang, dest_lang);
+    fs.writeFileSync(file, translated_content);
   }
+  await compressFolder(new_path, new_path + '.epub');
+  fs.rmSync(new_path, {recursive: true});
+  TranslationProgress.reset();
+  socket.emit('translation', TranslationProgress.toJson());
+  // return new filename to download
+  // once downloaded reset translation state
+  // remember to keep the translated file on a
+  // specific location if the according env var is
+  // defined
 }

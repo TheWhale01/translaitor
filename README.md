@@ -6,7 +6,6 @@ AI-powered book translation web application that translates entire EPUB books us
 
 - **Drag & Drop Upload**: Simply drop your EPUB file onto the web interface
 - **Real-time Progress**: Live progress tracking with WebSocket updates
-- **Multi-language Support**: Translate between 19+ languages
 - **Concurrent Protection**: Prevents multiple simultaneous translations
 - **Responsive Design**: Works on desktop and mobile devices
 - **Chapter-by-chapter Translation**: Maintains book structure and formatting
