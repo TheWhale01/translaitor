@@ -8,6 +8,9 @@ services:
       - ./app:/workspace
     networks:
       - traefik_default
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3000
     working_dir: /workspace
     command: sh /workspace/script.sh
     restart: unless-stopped

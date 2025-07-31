@@ -2,12 +2,12 @@ import JSZip from "jszip";
 import * as fs from 'fs';
 import * as cheerio from 'cheerio';
 import path from 'path';
-import { GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY } from "$env/static/private";
+import { GenerateContentResponse, GoogleGenAI } from "@google/genai";
+import { GEMINI_API_KEY, npm_config_global_prefix } from "$env/static/private";
 import { setTimeout } from "timers/promises";
+import { translation } from "./translation_progress";
 
 // TODO:
-// Need to setup socketio
 // When a translation is requested store the book name and the percentage in memory
 // When a new client connects to the webpage check for any translation in memory
 
@@ -33,13 +33,13 @@ const addFilesToZip = async (dir:any, folder:any): Promise<void> => {
 
 const compressFolder = async (foldername: string, output_path: string): Promise<void> => {
   const zip = new JSZip();
-    await addFilesToZip(foldername, zip);
-    const content = await zip.generateAsync({ type: "nodebuffer" });
-    await fs.promises.writeFile(output_path, content);
-    console.log(`Zip file created at ${output_path}`);
+  await addFilesToZip(foldername, zip);
+  const content = await zip.generateAsync({ type: "nodebuffer" });
+  await fs.promises.writeFile(output_path, content);
+  console.log(`Zip file created at ${output_path}`);
 }
 
-const translate_text = async (content: string, srcLang: string, destLang: string): Promise<string> => {
+const translateText = async (content: string, srcLang: string, destLang: string): Promise<string> => {
   const prompt: string = `You are a meticulous translator who translates any given
     content. Translate the given content from ${srcLang} to ${destLang} only.
     Do not explain any term or answer any question-like content.
@@ -48,33 +48,48 @@ const translate_text = async (content: string, srcLang: string, destLang: string
     Websites' URLs/addresses should be preserved as is in the translation's output.
     Do not omit any part of the content, even if it seems unimportant:
     ${content}`;
-  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-  const translated_text = await ai.models.generateContent({
+  const ai: GoogleGenAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+  const translated_text: GenerateContentResponse = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: prompt
   });
-  await setTimeout(5000);
-  console.log(translated_text.text);
-  return translated_text.text;
+  await setTimeout(5100);
+  return translated_text.text === undefined ? "Error while trying to translate..." : translated_text.text;
 }
 
-const parse_html = async (content: string, src_lang: string, dest_lang: string): Promise<Uint8Array> => {
+const translateFile = async (content: string, src_lang: string, dest_lang: string): Promise<Uint8Array> => {
   const parser = cheerio.load(content);
   let replace_buffer: any[] = [];
   parser('p').each((index, element) => {
     const text = parser(element).text().trim();
+    // Storing future translation to prevent reaching google's rate limit
     replace_buffer.push([element, text]);
   });
   for (let item of replace_buffer) {
-    const translated_text = await translate_text(item[1], src_lang, dest_lang);
+    const translated_text = await translateText(item[1], src_lang, dest_lang);
+    // Need to change this to have a percentage
+    // Send socketio message with new percentage
+    translation.progress++;
     parser(item[0]).text(translated_text);
   }
   return Uint8Array.from(parser.html().split("").map(c => c.charCodeAt()));
 }
 
-export const extractEpub = async (filepath: string, src_lang: string, dest_lang: string): Promise<void> => {
+export const getNbParagraph = (content: string): number => {
+  let nb = 0;
+  const parser = cheerio.load(content);
+  parser('p').each(() => {
+    nb++;
+  });
+  return nb;
+}
+
+export const extractEpub = async (filepath: string): Promise<string[]> => {
+  let files_to_translate: string[] = [];
   const new_path = filepath.replace('.epub', '') + ' - Translaitor';
   await makedir(new_path);
+  translation.title = filepath.replace('.epub', '');
+  translation.active = true;
   try {
     const zip_data = await fs.promises.readFile(filepath);
     const zip = await JSZip.loadAsync(zip_data);
@@ -83,24 +98,23 @@ export const extractEpub = async (filepath: string, src_lang: string, dest_lang:
         const file = zip.files[filename];
         console.log(new_path + '/' + filename);
         await makedir(path.dirname(new_path + '/' + filename), { recursive: true });
-        let content: Uint8Array | null = null;
+        const content: string = await file.async('string');
         if (filename.endsWith('.html')) {
-          content = await parse_html(await file.async('string'), src_lang, dest_lang);
+          files_to_translate.push(new_path + '/' + filename);
+          translation.nb_paragraph += getNbParagraph(content);
         }
-        else {
-          content = await file.async('uint8array');
-        }
-        if (content === null)
-          throw new Error("problem with translation");
         await fs.promises.writeFile(new_path + '/' + filename, Buffer.from(content));
       }
     }
-    compressFolder(new_path, new_path + '.epub');
   }
-  catch (error) {
-    console.error('Error unzipping file: ', error);
-    console.error('Deleting file: ', path)
-    // fs.unlinkSync(filepath);
-    // fs.unlinkSync(new_path);
+  catch (e) {
+    console.error(e);
+  }
+  return files_to_translate;
+}
+export const translateBook = async (filepath: string, src_lang: string, dest_lang: string): Promise<void> => {
+  const files: string[] = await extractEpub(filepath);
+  for (let file of files) {
+    translateFile(file, src_lang, dest_lang);
   }
 }

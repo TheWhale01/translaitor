@@ -1,15 +1,12 @@
 <script lang="ts">
-  import type { PageProps } from "./$types";
-  import { FileUpload, Progress } from "@skeletonlabs/skeleton-svelte";
-  import IconDropzone from '@lucide/svelte/icons/file-up';
-  import IconFile from '@lucide/svelte/icons/paperclip';
-  import IconRemove from '@lucide/svelte/icons/circle-x';
+  import { Progress } from "@skeletonlabs/skeleton-svelte";
   import IconLoader from '@lucide/svelte/icons/loader-2';
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { enhance } from '$app/forms';
+  import { socket } from "$lib/socketio_connection";
+  import { onMount } from "svelte";
 
-  // In this I would get the state of the translation (if one occurs)
-  let { data }: PageProps = $props();
+  import type { PageProps } from "./$types";
 
   // Available languages for translation
   const languages = [
@@ -19,26 +16,17 @@
     'Italian',
     'German',
     'Portuguese',
-    'Russian',
-    'Chinese',
-    'Japanese',
-    'Korean'
   ];
 
-  function handleFileEvent(files: any): void {
-    if (!files || !files.acceptedFiles || files.acceptedFiles.length === 0) {
-      console.error("No valid files selected");
-      return;
-    }
-    const file = files.acceptedFiles[0];
-    console.log(file);
-  }
+  let { data }: PageProps = $props();
 
   let srcLang: string = $state('');
   let destLang: string = $state('');
-  let translating: boolean = $state(false);
-  let translationProgress: number = $state(0);
-  let book: any = null;
+
+  onMount(() => {
+    socket.on('connection', () => { console.log("You are connected"); });
+  });
+
 </script>
 
 <header class="p-8">
@@ -71,9 +59,9 @@
             bind:value={destLang}
         />
     </div>
-    {#if !translating}
+    {#if !data.active}
         <button
-            disabled={(srcLang === '' || destLang === '') || (srcLang === destLang)}
+            disabled={((srcLang === '' || destLang === '') || (srcLang === destLang)) && !data.active}
             type="submit"
             class="btn btn-lg preset-filled-primary-500"
         >
@@ -81,9 +69,9 @@
         </button>
     {:else}
         <div class="card p-4">
-            <Progress meterBg="bg-primary-500" value={translationProgress} max={100}>{translationProgress}%</Progress>
+            <Progress meterBg="bg-primary-500" value={data.progress} max={100}>{data.progress}%</Progress>
             <p class="text-sm mt-2">This may take several minutes depending on the size of your book. <IconLoader class="w-6 h-6 animate-spin inline" /></p>
-            <p class="text-center pt-4">Translating: "book name"</p>
+            <p class="text-center pt-4">Translating: { data.title }</p>
         </div>
     {/if}
 </form>
