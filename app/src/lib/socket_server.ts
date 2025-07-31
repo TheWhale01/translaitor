@@ -5,7 +5,6 @@ export const webSocketServer = {
   configureServer(server: any) {
     const io = new Server(server.httpServer, {cors: {origin: '*'}});
     io.on('connection', (socket) => {
-      console.log('new user connected');
       socket.on('translation', (translation: any): void => {
         io.emit('translation', translation);
       });

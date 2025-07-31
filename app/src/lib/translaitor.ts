@@ -3,15 +3,15 @@ import * as fs from 'fs';
 import * as cheerio from 'cheerio';
 import path from 'path';
 import { GenerateContentResponse, GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY } from "$env/static/private";
+import { GEMINI_API_KEY, OUTPUT_PATH } from "$env/static/private";
 import { PUBLIC_WEBSOCKET_URL } from "$env/static/public";
 import { setTimeout } from "timers/promises";
 import { io } from 'socket.io-client';
 import TranslationProgress from "./translation_progress";
 import type { Socket } from "socket.io-client";
 
-const makedir = async (name: string, options: any = {}): Promise<void> => {
-  if (!fs.existsSync(name)) await fs.promises.mkdir(name, options);
+const makedir = (name: string, options: any = {}): void => {
+  if (!fs.existsSync(name)) fs.mkdirSync(name, options);
 }
 
 const addFilesToZip = (dir:any, folder:any): void => {
@@ -69,7 +69,6 @@ const translateFile = async (socket: Socket, filename: string, src_lang: string,
   for (let item of replace_buffer) {
     // const translated_text = await translateText(item[1], src_lang, dest_lang);
     const translated_text = "Some translated text...";
-    await setTimeout(100);
     // console.log(translated_text);
     TranslationProgress.nb_paragraph_done++;
     TranslationProgress.progress = Number((TranslationProgress.nb_paragraph_done * 100 / TranslationProgress.nb_paragraph_total).toFixed(2));
@@ -92,8 +91,8 @@ export const getNbParagraph = (content: string): number => {
 
 export const extractEpub = async (filepath: string, new_path: string): Promise<string[]> => {
   let files_to_translate: string[] = [];
-  await makedir(new_path);
-  TranslationProgress.title = filepath.replace('.epub', '');
+  makedir(new_path);
+  TranslationProgress.title = path.basename(filepath);
   TranslationProgress.active = true;
   try {
     const zip_data = await fs.promises.readFile(filepath);
@@ -101,7 +100,7 @@ export const extractEpub = async (filepath: string, new_path: string): Promise<s
     for (const filename in zip.files) {
       if (Object.prototype.hasOwnProperty.call(zip.files, filename)) {
         const file = zip.files[filename];
-        await makedir(path.dirname(new_path + '/' + filename), { recursive: true });
+        makedir(path.dirname(new_path + '/' + filename), { recursive: true });
         const content: string = await file.async('string');
         if (filename.endsWith('.html')) {
           files_to_translate.push(new_path + '/' + filename);
@@ -119,8 +118,10 @@ export const extractEpub = async (filepath: string, new_path: string): Promise<s
 }
 
 export const translateBook = async (filepath: string, src_lang: string, dest_lang: string): Promise<void> => {
+  console.log("DEBUG: " + filepath);
   const socket = io(PUBLIC_WEBSOCKET_URL);
   const new_path = filepath.replace('.epub', '') + ' - Translaitor';
+  const archive_name: string = new_path + '.epub';
   const files: string[] = await extractEpub(filepath, new_path);
 
   fs.unlinkSync(filepath);
@@ -129,8 +130,12 @@ export const translateBook = async (filepath: string, src_lang: string, dest_lan
     const translated_content: string = await translateFile(socket, file, src_lang, dest_lang);
     fs.writeFileSync(file, translated_content);
   }
-  await compressFolder(new_path, new_path + '.epub');
-  fs.rmSync(new_path, {recursive: true});
+  await compressFolder(new_path, archive_name);
+  fs.rmSync(new_path, { recursive: true });
+  if (OUTPUT_PATH !== "") {
+    makedir(OUTPUT_PATH);
+    fs.renameSync(archive_name, path.join(OUTPUT_PATH, path.basename(archive_name)));
+  }
   TranslationProgress.reset();
   socket.emit('translation', TranslationProgress.toJson());
   // return new filename to download
