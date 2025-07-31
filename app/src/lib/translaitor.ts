@@ -3,7 +3,8 @@ import * as fs from 'fs';
 import * as cheerio from 'cheerio';
 import path from 'path';
 import { GenerateContentResponse, GoogleGenAI } from "@google/genai";
-import { GEMINI_API_KEY, WEBSOCKET_URL } from "$env/static/private";
+import { GEMINI_API_KEY } from "$env/static/private";
+import { PUBLIC_WEBSOCKET_URL } from "$env/static/public";
 import { setTimeout } from "timers/promises";
 import { io } from 'socket.io-client';
 import TranslationProgress from "./translation_progress";
@@ -100,7 +101,6 @@ export const extractEpub = async (filepath: string, new_path: string): Promise<s
     for (const filename in zip.files) {
       if (Object.prototype.hasOwnProperty.call(zip.files, filename)) {
         const file = zip.files[filename];
-        console.log(new_path + '/' + filename);
         await makedir(path.dirname(new_path + '/' + filename), { recursive: true });
         const content: string = await file.async('string');
         if (filename.endsWith('.html')) {
@@ -119,7 +119,7 @@ export const extractEpub = async (filepath: string, new_path: string): Promise<s
 }
 
 export const translateBook = async (filepath: string, src_lang: string, dest_lang: string): Promise<void> => {
-  const socket = io(WEBSOCKET_URL);
+  const socket = io(PUBLIC_WEBSOCKET_URL);
   const new_path = filepath.replace('.epub', '') + ' - Translaitor';
   const files: string[] = await extractEpub(filepath, new_path);
 

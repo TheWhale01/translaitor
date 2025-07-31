@@ -10,7 +10,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"prod": "npm run build && TOKEN=secret ORIGIN=http://localhost:3000 node server.js"
+		"prod": "npm run build && BODY_SIZE_LIMIT=50M ORIGIN=http://localhost:3000 node server.js"
 	},
 	"devDependencies": {
 		"@google/genai": "^1.4.0",

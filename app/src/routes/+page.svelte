@@ -4,11 +4,12 @@
   import LanguageSelector from '$lib/components/LanguageSelector.svelte';
   import { enhance } from '$app/forms';
   import { io } from "socket.io-client";
+  import { PUBLIC_WEBSOCKET_URL } from "$env/static/public";
 
   import type { PageProps } from "./$types";
 
   // Available languages for translation
-  const socket = io();
+  const socket = io(PUBLIC_WEBSOCKET_URL);
   const languages = [
     'English',
     'Spanish',

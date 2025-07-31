@@ -11,6 +11,8 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=3000
+      # For production deployment
+      - BODY_SIZE_LIMIT=50M
     working_dir: /workspace
     command: sh /workspace/script.sh
     restart: unless-stopped
